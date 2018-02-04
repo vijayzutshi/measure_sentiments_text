@@ -1,0 +1,123 @@
+---
+title: "Measure sentiments / Emotions"
+output: pdf_document
+always_allow_html: yes
+---
+
+## PROJECT
+
+The main aim of this project is to analyse and measure people sentiments. This involves the process of converting unstructured text data into meaning insights. For this purpose I have used text from a book to process the sentiments of the text that a reader will have after reading the book. I am using 'tm' package for this purpose which is based on the text mining 'Bag of Words' Principle.
+
+
+## LIBRARY
+
+```{r echo = FALSE}
+setwd("C:/Program Files/RStudio/nnetwork")
+library(tm)
+library(RSentiment)
+library(data.table)
+library(DT)
+library(NLP)
+library(wordcloud)
+library(RColorBrewer)
+library(stringi)
+library(ggplot2)
+```
+
+## LOAD DATA
+
+```{r echo = FALSE}
+if (!file.exists("https://cs.stanford.edu/people/karpathy/char-rnn/pg.txt")){
+    down_file <- download.file("https://cs.stanford.edu/people/karpathy/char-rnn/pg.txt",
+                               "pg.txt")
+}
+con <- file("pg.txt")
+a <- readLines("pg.txt", encoding = "UTF-8", skipNul = TRUE)
+close(con)
+length(a)
+max(nchar(a))
+stri_stats_general(a)
+```
+
+
+## DATA CLEANING & PREPROCESSING
+
+```{r echo = FALSE}
+b <- iconv(a, "latin1", "ASCII", sub = "")
+text_corpus <- Corpus(VectorSource(list(b)))
+qplot(nchar(text_corpus), col = "blue") + stat_bin(bins = 30) 
+
+text_corpus <- tm_map(text_corpus, content_transformer(tolower))
+text_corpus <- tm_map(text_corpus, removePunctuation)
+text_corpus <- tm_map(text_corpus, removeNumbers)
+text_corpus <- tm_map(text_corpus, removeWords, stopwords("english"))
+
+gogglebadwords <- read.delim("C:/Program Files/RStudio/Capstone/final/google_bad_words.txt",
+                             sep = ":",header = FALSE)
+gogglebadwords <- gogglebadwords[,1]
+text_corpus <- tm_map(text_corpus, removeWords, gogglebadwords)
+text_corpus <- tm_map(text_corpus, stripWhitespace)
+text_corpus <- tm_map(text_corpus, stemDocument)
+writeCorpus(text_corpus, filenames = "text_corpus.txt")
+dtm <- DocumentTermMatrix(VCorpus(VectorSource(text_corpus[[1]]$content)))
+freq <- colSums(as.matrix(dtm))
+```
+
+LIST OF ALL WORDS APPEARING IN THE TEXT
+
+```{r echo = FALSE}
+wordcloud(text_corpus, max.words = 100, random.order = FALSE, rot.per=0.35,
+          use.r.layout = FALSE, colors = brewer.pal(8, "Dark2"))
+```
+
+
+## CALCULATING SENTIMENTS
+
+```{r echo = FALSE}
+sentiments <- calculate_sentiment(names(freq))
+sentiments <- cbind(sentiments, as.data.frame(freq))
+
+sent_positive <- sentiments[sentiments$sentiment == 'Positive', ]
+sent_negative <- sentiments[sentiments$sentiment == 'Negative', ]
+data.table(sent_positive)
+data.table(sent_negative)
+
+datatable(sent_negative)
+cat("We have far lower negative sentiments: " ,sum(sent_negative$freq), 
+"than positive: ", sum(sent_positive$freq))
+sp <- sum(sent_positive$freq)
+sn <- sum(sent_negative$freq)
+sp/sn
+
+```
+
+## FINAL FINDINGS
+
+We see from above that the ratio of positive to negative words is 691/189 = 3.6. This indicates that the reader will have a positive emotions and view about the book as it has more positive words than  negative words.
+
+The table below shows the frequency of words in the text classified as positive
+
+```{r echo = FALSE}
+datatable(sent_positive)
+```
+
+Word Cloud of Positive Words
+
+```{r echo = FALSE}
+wordcloud(sent_positive$text, sent_positive$freq, max.words = 100, random.order = FALSE, 
+          rot.per=0.35, use.r.layout = FALSE, colors = brewer.pal(8, "Dark2"))
+```
+
+The table below shows the frequency of words in the text classified as negative
+
+```{r echo = FALSE}
+datatable(sent_negative)
+```
+
+Word Cloud of Negative Words
+
+```{r echo = FALSE}
+wordcloud(sent_negative$text, sent_negative$freq, max.words = 100, random.order = FALSE, 
+          rot.per=0.35, use.r.layout = FALSE, colors = brewer.pal(8, "Dark2"))
+```
+
